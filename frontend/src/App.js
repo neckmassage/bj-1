@@ -255,7 +255,30 @@ const BlackjackGame = () => {
   };
 
   const result = getResultMessage();
-  const isWinning = result?.type === "win";
+
+  // Calculate final dealer score helper
+  const calculateFinalDealerScore = () => {
+    if (!gameState || gameState.game_status === "playing") return gameState?.dealer_score || 0;
+    
+    let score = 0;
+    let aces = 0;
+    
+    for (let card of gameState.dealer_cards) {
+      if (card.rank === 'A') {
+        aces += 1;
+        score += 11;
+      } else {
+        score += card.value;
+      }
+    }
+    
+    while (score > 21 && aces > 0) {
+      score -= 10;
+      aces -= 1;
+    }
+    
+    return score;
+  };
 
   useEffect(() => {
     startNewGame();
