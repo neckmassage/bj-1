@@ -17,6 +17,46 @@ const BlackjackGame = () => {
   const [visibleCards, setVisibleCards] = useState({ player: [], dealer: [] });
   const [editingBalance, setEditingBalance] = useState(false);
 
+  // Simulate realistic card distribution
+  const distributeCards = (cards, dealerCards) => {
+    setIsDistributing(true);
+    setVisibleCards({ player: [], dealer: [] });
+    
+    // Casino order: player, dealer, player, dealer
+    const distributionOrder = [
+      { target: 'player', cardIndex: 0 },
+      { target: 'dealer', cardIndex: 0 },
+      { target: 'player', cardIndex: 1 },
+      { target: 'dealer', cardIndex: 1 }
+    ];
+    
+    setDealingOrder(distributionOrder);
+    
+    distributionOrder.forEach((deal, index) => {
+      setTimeout(() => {
+        setVisibleCards(prev => {
+          const newVisible = { ...prev };
+          if (deal.target === 'player') {
+            newVisible.player = [...newVisible.player, cards[deal.cardIndex]];
+          } else {
+            // Dealer's second card stays hidden during game
+            const card = dealerCards[deal.cardIndex];
+            const isHidden = deal.cardIndex === 1;
+            newVisible.dealer = [...newVisible.dealer, { ...card, isHidden }];
+          }
+          return newVisible;
+        });
+        
+        // End distribution after last card
+        if (index === distributionOrder.length - 1) {
+          setTimeout(() => {
+            setIsDistributing(false);
+          }, 300);
+        }
+      }, index * 400); // 400ms between each card
+    });
+  };
+
   // Start new game
   const startNewGame = async () => {
     try {
@@ -26,9 +66,9 @@ const BlackjackGame = () => {
       setBetAmount(1);
       setShowResult(false);
       
-      // Animate card distribution
-      setIsAnimating(true);
-      setTimeout(() => setIsAnimating(false), 1000);
+      // Start realistic card distribution
+      distributeCards(response.data.player_cards, response.data.dealer_cards);
+      
     } catch (error) {
       console.error("Error starting new game:", error);
     }
