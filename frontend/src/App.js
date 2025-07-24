@@ -12,6 +12,10 @@ const BlackjackGame = () => {
   const [isAnimating, setIsAnimating] = useState(false);
   const [showResult, setShowResult] = useState(false);
   const [balance, setBalance] = useState(1000);
+  const [isDistributing, setIsDistributing] = useState(false);
+  const [dealingOrder, setDealingOrder] = useState([]);
+  const [visibleCards, setVisibleCards] = useState({ player: [], dealer: [] });
+  const [editingBalance, setEditingBalance] = useState(false);
 
   // Start new game
   const startNewGame = async () => {
