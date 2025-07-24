@@ -234,7 +234,7 @@ const BlackjackGame = () => {
     setEditingBalance(false);
   };
 
-  // Get game result message
+  // Get game result message in French
   const getResultMessage = () => {
     if (!gameState || !showResult) return null;
     
@@ -243,12 +243,12 @@ const BlackjackGame = () => {
     switch (game_status) {
       case "player_win":
       case "dealer_bust":
-        return { type: "win", text: `YOU WIN +$${bet_amount}` };
+        return { type: "win", text: `VOUS GAGNEZ +${bet_amount}€` };
       case "dealer_win":
       case "player_bust":
-        return { type: "lose", text: `YOU LOSE -$${bet_amount}` };
+        return { type: "lose", text: `VOUS PERDEZ -${bet_amount}€` };
       case "push":
-        return { type: "push", text: "PUSH" };
+        return { type: "push", text: "ÉGALITÉ" };
       default:
         return null;
     }
