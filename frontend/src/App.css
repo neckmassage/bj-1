@@ -499,8 +499,13 @@
   padding: 20px 40px;
 }
 
-.deal-btn:hover {
+.deal-btn:hover:not(:disabled) {
   background: #219A52;
+}
+
+.deal-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .btn-icon {
