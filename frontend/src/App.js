@@ -1,52 +1,343 @@
-import { useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import "./App.css";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
 import axios from "axios";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
-const Home = () => {
-  const helloWorldApi = async () => {
+const BlackjackGame = () => {
+  const [gameState, setGameState] = useState(null);
+  const [gameId, setGameId] = useState(null);
+  const [betAmount, setBetAmount] = useState(1);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [showResult, setShowResult] = useState(false);
+  const [balance, setBalance] = useState(1000);
+
+  // Start new game
+  const startNewGame = async () => {
     try {
-      const response = await axios.get(`${API}/`);
-      console.log(response.data.message);
-    } catch (e) {
-      console.error(e, `errored out requesting / api`);
+      const response = await axios.post(`${API}/game/new`);
+      setGameState(response.data);
+      setGameId(response.data.id);
+      setBetAmount(1);
+      setShowResult(false);
+      
+      // Animate card distribution
+      setIsAnimating(true);
+      setTimeout(() => setIsAnimating(false), 1000);
+    } catch (error) {
+      console.error("Error starting new game:", error);
     }
   };
 
+  // Place bet
+  const placeBet = async () => {
+    if (!gameId) return;
+    
+    try {
+      const response = await axios.post(`${API}/game/${gameId}/bet`, {
+        amount: betAmount
+      });
+      setGameState(response.data);
+      setBalance(response.data.balance);
+    } catch (error) {
+      console.error("Error placing bet:", error);
+    }
+  };
+
+  // Hit action
+  const hit = async () => {
+    if (!gameId || isAnimating) return;
+    
+    setIsAnimating(true);
+    
+    try {
+      const response = await axios.post(`${API}/game/${gameId}/action`, {
+        action: "hit"
+      });
+      
+      // Wait for card animation
+      setTimeout(() => {
+        setGameState(response.data);
+        setBalance(response.data.balance);
+        setIsAnimating(false);
+        
+        // Show result if game ended
+        if (response.data.game_status !== "playing") {
+          setTimeout(() => setShowResult(true), 500);
+        }
+      }, 250);
+      
+    } catch (error) {
+      console.error("Error hitting:", error);
+      setIsAnimating(false);
+    }
+  };
+
+  // Stand action
+  const stand = async () => {
+    if (!gameId || isAnimating) return;
+    
+    setIsAnimating(true);
+    
+    try {
+      const response = await axios.post(`${API}/game/${gameId}/action`, {
+        action: "stand"
+      });
+      
+      // Animate dealer cards reveal
+      setTimeout(() => {
+        setGameState(response.data);
+        setBalance(response.data.balance);
+        setIsAnimating(false);
+        
+        // Show result after dealer animation
+        setTimeout(() => setShowResult(true), 800);
+      }, 600);
+      
+    } catch (error) {
+      console.error("Error standing:", error);
+      setIsAnimating(false);
+    }
+  };
+
+  // Card component
+  const Card = ({ card, isHidden = false, isDealer = false, index = 0, isWinning = false }) => {
+    const getCardSymbol = (suit) => {
+      const symbols = {
+        hearts: "♥",
+        diamonds: "♦", 
+        clubs: "♣",
+        spades: "♠"
+      };
+      return symbols[suit] || "";
+    };
+
+    const getCardColor = (suit) => {
+      return suit === "hearts" || suit === "diamonds" ? "#E74C3C" : "#2C3E50";
+    };
+
+    if (isHidden) {
+      return (
+        <div 
+          className={`card card-back ${isAnimating ? 'card-dealing' : ''}`}
+          style={{ 
+            animationDelay: `${index * 150}ms`,
+            zIndex: index 
+          }}
+        >
+          <div className="card-back-content">
+            <div className="stake-logo">Stake</div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div 
+        className={`card ${isAnimating ? 'card-dealing' : ''} ${isWinning ? 'card-winning' : ''}`}
+        style={{ 
+          animationDelay: `${index * 150}ms`,
+          zIndex: index,
+          color: getCardColor(card.suit)
+        }}
+      >
+        <div className="card-content">
+          <div className="card-rank">{card.display}</div>
+          <div className="card-suit">{getCardSymbol(card.suit)}</div>
+        </div>
+      </div>
+    );
+  };
+
+  // Get game result message
+  const getResultMessage = () => {
+    if (!gameState || !showResult) return null;
+    
+    const { game_status, bet_amount } = gameState;
+    
+    switch (game_status) {
+      case "player_win":
+      case "dealer_bust":
+        return { type: "win", text: `YOU WIN +$${bet_amount}` };
+      case "dealer_win":
+      case "player_bust":
+        return { type: "lose", text: `YOU LOSE -$${bet_amount}` };
+      case "push":
+        return { type: "push", text: "PUSH" };
+      default:
+        return null;
+    }
+  };
+
+  const result = getResultMessage();
+  const isWinning = result?.type === "win";
+
   useEffect(() => {
-    helloWorldApi();
+    startNewGame();
   }, []);
 
+  if (!gameState) {
+    return (
+      <div className="blackjack-container">
+        <div className="loading">Loading...</div>
+      </div>
+    );
+  }
+
   return (
-    <div>
-      <header className="App-header">
-        <a
-          className="App-link"
-          href="https://emergent.sh"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img src="https://avatars.githubusercontent.com/in/1201222?s=120&u=2686cf91179bbafbc7a71bfbc43004cf9ae1acea&v=4" />
-        </a>
-        <p className="mt-5">Building something incredible ~!</p>
-      </header>
+    <div className="blackjack-container">
+      {/* Header */}
+      <div className="header">
+        <div className="stake-logo-header">
+          <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTIwIDQwQzMxLjA0NTcgNDAgNDAgMzEuMDQ1NyA0MCAyMEM0MCA4Ljk1NDMgMzEuMDQ1NyAwIDIwIDBDOC45NTQzIDAgMCA4Ljk1NDMgMCAyMEMwIDMxLjA0NTcgOC45NTQzIDQwIDIwIDQwWiIgZmlsbD0iIzFCQzI3QSIvPgo8cGF0aCBkPSJNMTYuNSAyOC41VjE2LjVIMjMuNVYyOC41SDE2LjVaIiBmaWxsPSJ3aGl0ZSIvPgo8L3N2Zz4K" alt="Stake" />
+          <span>Stake</span>
+        </div>
+        
+        <div className={`balance ${isWinning && showResult ? 'balance-winning' : ''}`}>
+          ${balance.toFixed(2)}
+        </div>
+        
+        <div className="header-actions">
+          <button className="wallet-btn">Wallet</button>
+        </div>
+      </div>
+
+      {/* Game Info */}
+      <div className="game-info">
+        <div className="payout-info">BLACKJACK PAYS 3 TO 2</div>
+        <div className="insurance-info">INSURANCE PAYS 2 TO 1</div>
+      </div>
+
+      {/* Game Area */}
+      <div className="game-area">
+        {/* Dealer Section */}
+        <div className="dealer-section">
+          <div className="section-label">
+            <span>Dealer</span>
+            <span className="score">{gameState.game_status === "playing" ? gameState.dealer_score : calculate_final_dealer_score()}</span>
+          </div>
+          <div className="cards-container">
+            {gameState.dealer_cards.map((card, index) => (
+              <Card 
+                key={index}
+                card={card}
+                isHidden={index === 1 && gameState.game_status === "playing"}
+                isDealer={true}
+                index={index}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Player Section */}
+        <div className="player-section">
+          <div className="section-label">
+            <span>Player</span>  
+            <span className="score">{gameState.player_score}</span>
+          </div>
+          <div className="cards-container">
+            {gameState.player_cards.map((card, index) => (
+              <Card 
+                key={index}
+                card={card}
+                index={index}
+                isWinning={isWinning && showResult}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Result Banner */}
+      {result && showResult && (
+        <div className={`result-banner ${result.type}`}>
+          {result.text}
+        </div>
+      )}
+
+      {/* Betting Controls */}
+      <div className="betting-controls">
+        <div className="bet-amount">
+          <label>Bet Amount</label>
+          <div className="bet-input-container">
+            <input 
+              type="number" 
+              value={betAmount} 
+              onChange={(e) => setBetAmount(Number(e.target.value))}
+              min="1"
+              max={balance}
+            />
+            <div className="bet-buttons">
+              <button onClick={() => setBetAmount(Math.max(1, betAmount + 1))}>+1</button>
+              <button onClick={() => setBetAmount(Math.max(1, betAmount + 5))}>+5</button>
+              <button onClick={() => setBetAmount(Math.max(1, betAmount + 25))}>+25</button>
+              <button onClick={() => setBetAmount(Math.max(1, betAmount + 100))}>+100</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Game Controls */}
+      <div className="game-controls">
+        {gameState.game_status === "playing" ? (
+          <>
+            <button 
+              className="control-btn hit-btn" 
+              onClick={hit}
+              disabled={isAnimating}
+            >
+              <span className="btn-icon">🔥</span>
+              Hit
+            </button>
+            <button 
+              className="control-btn stand-btn" 
+              onClick={stand}
+              disabled={isAnimating}
+            >
+              Stand
+            </button>
+          </>
+        ) : (
+          <button 
+            className="control-btn deal-btn" 
+            onClick={startNewGame}
+          >
+            New Game
+          </button>
+        )}
+      </div>
     </div>
   );
+
+  function calculate_final_dealer_score() {
+    if (!gameState || gameState.game_status === "playing") return gameState?.dealer_score || 0;
+    
+    let score = 0;
+    let aces = 0;
+    
+    for (let card of gameState.dealer_cards) {
+      if (card.rank === 'A') {
+        aces += 1;
+        score += 11;
+      } else {
+        score += card.value;
+      }
+    }
+    
+    while (score > 21 && aces > 0) {
+      score -= 10;
+      aces -= 1;
+    }
+    
+    return score;
+  }
 };
 
 function App() {
   return (
     <div className="App">
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Home />}>
-            <Route index element={<Home />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
+      <BlackjackGame />
     </div>
   );
 }
