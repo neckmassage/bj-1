@@ -176,8 +176,8 @@ const BlackjackGame = () => {
     }
   };
 
-  // Card component
-  const Card = ({ card, isHidden = false, isDealer = false, index = 0, isWinning = false }) => {
+  // Card component with realistic animations
+  const Card = ({ card, isHidden = false, isDealer = false, index = 0, isWinning = false, isDistributing = false }) => {
     const getCardSymbol = (suit) => {
       const symbols = {
         hearts: "♥",
@@ -192,17 +192,17 @@ const BlackjackGame = () => {
       return suit === "hearts" || suit === "diamonds" ? "#E74C3C" : "#2C3E50";
     };
 
-    if (isHidden) {
+    if (isHidden || card?.isHidden) {
       return (
         <div 
-          className={`card card-back ${isAnimating ? 'card-dealing' : ''}`}
+          className={`card card-back ${isDistributing ? 'card-dealing' : ''}`}
           style={{ 
-            animationDelay: `${index * 150}ms`,
-            zIndex: index 
+            animationDelay: `${index * 400}ms`,
+            zIndex: 10 - index 
           }}
         >
           <div className="card-back-content">
-            <div className="stake-logo">Stake</div>
+            <div className="card-pattern"></div>
           </div>
         </div>
       );
@@ -210,10 +210,10 @@ const BlackjackGame = () => {
 
     return (
       <div 
-        className={`card ${isAnimating ? 'card-dealing' : ''} ${isWinning ? 'card-winning' : ''}`}
+        className={`card ${isDistributing ? 'card-dealing card-flipping' : ''} ${isWinning ? 'card-winning' : ''}`}
         style={{ 
-          animationDelay: `${index * 150}ms`,
-          zIndex: index,
+          animationDelay: `${index * 400}ms`,
+          zIndex: 10 - index,
           color: getCardColor(card.suit)
         }}
       >
@@ -223,6 +223,15 @@ const BlackjackGame = () => {
         </div>
       </div>
     );
+  };
+
+  // Balance editor
+  const handleBalanceEdit = (newBalance) => {
+    const balance = parseFloat(newBalance);
+    if (!isNaN(balance) && balance >= 0) {
+      setBalance(balance);
+    }
+    setEditingBalance(false);
   };
 
   // Get game result message
