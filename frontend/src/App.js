@@ -89,9 +89,9 @@ const BlackjackGame = () => {
     }
   };
 
-  // Hit action
-  const hit = async () => {
-    if (!gameId || isAnimating) return;
+  // Tirer (Hit) action
+  const tirer = async () => {
+    if (!gameId || isAnimating || isDistributing) return;
     
     setIsAnimating(true);
     
@@ -100,17 +100,25 @@ const BlackjackGame = () => {
         action: "hit"
       });
       
-      // Wait for card animation
+      // Animate new card from deck
       setTimeout(() => {
-        setGameState(response.data);
-        setBalance(response.data.balance);
-        setIsAnimating(false);
+        const newCard = response.data.player_cards[response.data.player_cards.length - 1];
+        setVisibleCards(prev => ({
+          ...prev,
+          player: [...prev.player, newCard]
+        }));
         
-        // Show result if game ended
-        if (response.data.game_status !== "playing") {
-          setTimeout(() => setShowResult(true), 500);
-        }
-      }, 250);
+        setTimeout(() => {
+          setGameState(response.data);
+          setBalance(response.data.balance);
+          setIsAnimating(false);
+          
+          // Show result if game ended (but only after seeing the card)
+          if (response.data.game_status !== "playing") {
+            setTimeout(() => setShowResult(true), 800);
+          }
+        }, 200);
+      }, 300);
       
     } catch (error) {
       console.error("Error hitting:", error);
@@ -118,9 +126,9 @@ const BlackjackGame = () => {
     }
   };
 
-  // Stand action
-  const stand = async () => {
-    if (!gameId || isAnimating) return;
+  // Rester (Stand) action
+  const rester = async () => {
+    if (!gameId || isAnimating || isDistributing) return;
     
     setIsAnimating(true);
     
@@ -129,15 +137,38 @@ const BlackjackGame = () => {
         action: "stand"
       });
       
-      // Animate dealer cards reveal
+      // First reveal dealer's hidden card
       setTimeout(() => {
-        setGameState(response.data);
-        setBalance(response.data.balance);
-        setIsAnimating(false);
+        setVisibleCards(prev => ({
+          ...prev,
+          dealer: prev.dealer.map((card, index) => 
+            index === 1 ? { ...card, isHidden: false } : card
+          )
+        }));
         
-        // Show result after dealer animation
-        setTimeout(() => setShowResult(true), 800);
-      }, 600);
+        // Then add any additional dealer cards one by one
+        const additionalCards = response.data.dealer_cards.slice(2);
+        
+        if (additionalCards.length > 0) {
+          additionalCards.forEach((card, index) => {
+            setTimeout(() => {
+              setVisibleCards(prev => ({
+                ...prev,
+                dealer: [...prev.dealer, card]
+              }));
+            }, (index + 1) * 400);
+          });
+        }
+        
+        // Update game state and show result after all animations
+        setTimeout(() => {
+          setGameState(response.data);
+          setBalance(response.data.balance);
+          setIsAnimating(false);
+          setTimeout(() => setShowResult(true), 600);
+        }, additionalCards.length * 400 + 800);
+        
+      }, 500);
       
     } catch (error) {
       console.error("Error standing:", error);
