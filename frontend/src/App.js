@@ -264,33 +264,54 @@ const BlackjackGame = () => {
   if (!gameState) {
     return (
       <div className="blackjack-container">
-        <div className="loading">Loading...</div>
+        <div className="loading">Chargement...</div>
       </div>
     );
   }
 
   return (
     <div className="blackjack-container">
+      {/* Card Deck Pile - Top Right */}
+      <div className="card-deck">
+        <div className="deck-cards">
+          <div className="deck-card deck-card-1"></div>
+          <div className="deck-card deck-card-2"></div>
+          <div className="deck-card deck-card-3"></div>
+        </div>
+      </div>
+
       {/* Header */}
       <div className="header">
-        <div className="stake-logo-header">
-          <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTIwIDQwQzMxLjA0NTcgNDAgNDAgMzEuMDQ1NyA0MCAyMEM0MCA4Ljk1NDMgMzEuMDQ1NyAwIDIwIDBDOC45NTQzIDAgMCA4Ljk1NDMgMCAyMEMwIDMxLjA0NTcgOC45NTQzIDQwIDIwIDQwWiIgZmlsbD0iIzFCQzI3QSIvPgo8cGF0aCBkPSJNMTYuNSAyOC41VjE2LjVIMjMuNVYyOC41SDE2LjVaIiBmaWxsPSJ3aGl0ZSIvPgo8L3N2Zz4K" alt="Stake" />
-          <span>Stake</span>
+        <div className="game-title">
+          <span>🃏 Blackjack</span>
         </div>
         
-        <div className={`balance ${isWinning && showResult ? 'balance-winning' : ''}`}>
-          ${balance.toFixed(2)}
+        <div className={`balance ${result?.type === "win" && showResult ? 'balance-winning' : ''}`}>
+          {editingBalance ? (
+            <input
+              type="number"
+              className="balance-input"
+              defaultValue={balance}
+              onBlur={(e) => handleBalanceEdit(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleBalanceEdit(e.target.value)}
+              autoFocus
+            />
+          ) : (
+            <span onClick={() => setEditingBalance(true)}>
+              {balance.toFixed(2)}€
+            </span>
+          )}
         </div>
         
         <div className="header-actions">
-          <button className="wallet-btn">Wallet</button>
+          <button className="wallet-btn">Portefeuille</button>
         </div>
       </div>
 
       {/* Game Info */}
       <div className="game-info">
-        <div className="payout-info">BLACKJACK PAYS 3 TO 2</div>
-        <div className="insurance-info">INSURANCE PAYS 2 TO 1</div>
+        <div className="payout-info">BLACKJACK PAIE 3 CONTRE 2</div>
+        <div className="insurance-info">ASSURANCE PAIE 2 CONTRE 1</div>
       </div>
 
       {/* Game Area */}
@@ -298,17 +319,25 @@ const BlackjackGame = () => {
         {/* Dealer Section */}
         <div className="dealer-section">
           <div className="section-label">
-            <span>Dealer</span>
-            <span className="score">{gameState.game_status === "playing" ? gameState.dealer_score : calculate_final_dealer_score()}</span>
+            <span>Croupier</span>
+            <span className="score">
+              {gameState.game_status === "playing" ? 
+                visibleCards.dealer.filter(c => !c.isHidden).reduce((sum, card) => {
+                  return sum + (card.rank === 'A' ? 11 : card.value);
+                }, 0) : 
+                calculateFinalDealerScore()
+              }
+            </span>
           </div>
           <div className="cards-container">
-            {gameState.dealer_cards.map((card, index) => (
+            {visibleCards.dealer.map((card, index) => (
               <Card 
-                key={index}
+                key={`dealer-${index}`}
                 card={card}
-                isHidden={index === 1 && gameState.game_status === "playing"}
+                isHidden={card.isHidden}
                 isDealer={true}
                 index={index}
+                isDistributing={isDistributing}
               />
             ))}
           </div>
@@ -317,16 +346,17 @@ const BlackjackGame = () => {
         {/* Player Section */}
         <div className="player-section">
           <div className="section-label">
-            <span>Player</span>  
+            <span>Joueur</span>  
             <span className="score">{gameState.player_score}</span>
           </div>
           <div className="cards-container">
-            {gameState.player_cards.map((card, index) => (
+            {visibleCards.player.map((card, index) => (
               <Card 
-                key={index}
+                key={`player-${index}`}
                 card={card}
                 index={index}
-                isWinning={isWinning && showResult}
+                isWinning={result?.type === "win" && showResult}
+                isDistributing={isDistributing}
               />
             ))}
           </div>
@@ -343,7 +373,7 @@ const BlackjackGame = () => {
       {/* Betting Controls */}
       <div className="betting-controls">
         <div className="bet-amount">
-          <label>Bet Amount</label>
+          <label>Mise</label>
           <div className="bet-input-container">
             <input 
               type="number" 
@@ -368,26 +398,27 @@ const BlackjackGame = () => {
           <>
             <button 
               className="control-btn hit-btn" 
-              onClick={hit}
-              disabled={isAnimating}
+              onClick={tirer}
+              disabled={isAnimating || isDistributing}
             >
               <span className="btn-icon">🔥</span>
-              Hit
+              Tirer
             </button>
             <button 
               className="control-btn stand-btn" 
-              onClick={stand}
-              disabled={isAnimating}
+              onClick={rester}
+              disabled={isAnimating || isDistributing}
             >
-              Stand
+              Rester
             </button>
           </>
         ) : (
           <button 
             className="control-btn deal-btn" 
             onClick={startNewGame}
+            disabled={isDistributing}
           >
-            New Game
+            Nouvelle Partie
           </button>
         )}
       </div>
